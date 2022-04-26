@@ -1,4 +1,13 @@
+::: {.cell .markdown}
+
+
 ## Set up environment
+
+:::
+
+
+::: {.cell .markdown}
+
 
 In the next step, we will set up personal variables before attempting to reserve resources. It's important that you get the variables right *before* you import the `fablib` library, because `fablib` loads these once when imported and they can't be changed afterwards.
 
@@ -9,6 +18,11 @@ The important details to get right are the bastion username and the bastion key 
 
 
 We also need to create an SSH config file, with settings for accessing the bastion gateway.
+
+:::
+
+
+::: {.cell .code}
 
 
 ```python
@@ -26,6 +40,11 @@ os.environ['FABRIC_SLICE_PUBLIC_KEY_FILE']=os.environ['HOME']+'/.ssh/id_rsa.pub'
 os.environ['FABRIC_BASTION_HOST'] = 'bastion-1.fabric-testbed.net'
 ```
 
+:::
+
+
+::: {.cell .code}
+
 
 ```python
 # make sure the bastion key exists in that location!
@@ -33,6 +52,10 @@ os.environ['FABRIC_BASTION_HOST'] = 'bastion-1.fabric-testbed.net'
 os.path.exists(os.environ['FABRIC_BASTION_KEY_LOCATION'])
 ```
 
+:::
+
+
+::: {.cell .code}
 
 ```python
 # prepare to share these with Bash so we can write the SSH config file
@@ -41,6 +64,11 @@ FABRIC_BASTION_KEY_LOCATION = os.environ['FABRIC_BASTION_KEY_LOCATION']
 FABRIC_SLICE_PRIVATE_KEY_FILE = os.environ['FABRIC_SLICE_PRIVATE_KEY_FILE']
 FABRIC_BASTION_HOST = os.environ['FABRIC_BASTION_HOST']
 ```
+
+:::
+
+
+::: {.cell .code}
 
 
 ```bash
@@ -59,14 +87,35 @@ echo "     UserKnownHostsFile /dev/null"                        >> ${FABRIC_BAST
 cat ${FABRIC_BASTION_SSH_CONFIG_FILE}
 ```
 
+:::
+
+
+::: {.cell .markdown}
+
 Give your slice a unique name:
+
+:::
+
+
+::: {.cell .code}
 
 
 ```python
 SLICENAME="ffund-meeting-demo"
 ```
 
+:::
+
+
+::: {.cell .markdown}
+
+
 Now we are ready to import `fablib`! And we'll use it to see what resources are available at FABRIC sites.
+
+:::
+
+
+::: {.cell .code}
 
 
 ```python
@@ -74,6 +123,8 @@ import json
 import traceback
 from fabrictestbed_extensions.fablib.fablib import fablib
 ```
+
+:::
 
 Here is a complete list of FABRIC sites:
 
