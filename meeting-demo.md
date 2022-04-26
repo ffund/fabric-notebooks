@@ -126,21 +126,46 @@ from fabrictestbed_extensions.fablib.fablib import fablib
 
 :::
 
+
+::: {.cell .markdown}
+
+
 Here is a complete list of FABRIC sites:
 
+:::
+
+
+::: {.cell .code}
 
 ```python
 fablib.get_site_names()
 ```
 
+:::
+
+
+::: {.cell .markdown}
+
 We can find out about available resources at each site. This will take a few minutes to run, as it queries the various FABRIC sites to find out what resources are available.
 
+:::
+
+::: {.cell .code}
 
 ```python
 print(f"{fablib.list_sites()}")
 ```
 
+:::
+
+::: {.cell .markdown}
+
 If we already have a slice (for example - we started working on this earlier and are picking it up again later), we can skip the next section, and just load the existing slice.
+
+:::
+
+
+::: {.cell .code}
 
 
 ```python
@@ -150,31 +175,69 @@ if fablib.get_slice(SLICENAME):
     print(slice)
 ```
 
+:::
+
+
+::: {.cell .markdown}
+
+
 ## Create a slice and add resources
+
+:::
+
+::: {.cell .markdown}
 
 We will use `fablib` to create a slice and set up the resources that we want in it.
 
+:::
+
+
+::: {.cell .code}
 
 
 ```python
 slice = fablib.new_slice(name=SLICENAME)
 ```
 
+:::
+
+::: {.cell .markdown}
+
 When we reserve our resources, we'll specify the disk image that should be pre-installed on the hosts. The choices include CentOS, Debian, Fedora, OpenBSD, Rocky Linux, and Ubuntu:
+
+:::
+
+
+::: {.cell .code}
 
 
 ```python
 fablib.get_image_names()
 ```
 
+:::
+
+::: {.cell .markdown}
+
 The default is Rocky Linux, which is kind of a weird choice.
 
 To add a node to the slice, we'll use the `add_node()` function. Here's the current documenation for this function:
+
+:::
+
+
+::: {.cell .code}
 
 
 ```python
 print(f"{slice.add_node.__doc__}")
 ```
+
+:::
+
+
+::: {.cell .markdown}
+
 
 We see that when I add a node, I can specify:
 
@@ -188,6 +251,11 @@ We see that when I add a node, I can specify:
 
 I will now add three nodes to my slice:
 
+:::
+
+
+::: {.cell .code}
+
 
 ```python
 nodeRomeo  = slice.add_node(name="romeo",  site='TACC', cores=1, ram=4, image='default_ubuntu_20')
@@ -195,19 +263,44 @@ nodeJuliet = slice.add_node(name="juliet", site='TACC', cores=1, ram=4, image='d
 nodeRouter = slice.add_node(name="router", site='TACC', image='default_ubuntu_20')
 ```
 
+:::
+
+
+::: {.cell .code}
+
 
 ```python
 print(f"{slice.list_nodes()}")
 ```
 
+:::
+
+
+
+::: {.cell .markdown}
+
 Now we need to add network services. We will use the `add_component` method of the `node`, which is for adding network interfaces and GPUs. Here's its documentation:
 
+:::
+
+
+::: {.cell .code}
 
 ```python
 print(f"{nodeRomeo.add_component.__doc__}")
 ```
 
+:::
+
+
+::: {.cell .markdown}
+
 We'll prepare interfaces for a line topology, with a router connecting romeo and juliet. Note that we save specifically the *interface* from the component that is returned.
+
+:::
+
+
+::: {.cell .code}
 
 
 ```python
@@ -217,39 +310,81 @@ ifaceRouterR = nodeRouter.add_component(model="NIC_Basic", name="if_router_r").g
 ifaceRouterJ = nodeRouter.add_component(model="NIC_Basic", name="if_router_j").get_interfaces()[0]
 ```
 
+:::
+
+
+::: {.cell .code}
+
 
 ```python
 print(f"{slice.list_interfaces()}")
 ```
 
+:::
+
+
+::: {.cell .markdown}
+
 Now, we need two networks. FABRIC offers a few different type of networks. We'll look at the documentation to learn more.
 
+:::
+
+
+::: {.cell .code}
 
 
 ```python
 print(f"{slice.add_l2network.__doc__}")
 ```
 
+:::
+
+
+::: {.cell .code}
+
 
 ```python
 print(f"{slice.add_l3network.__doc__}")
 ```
 
+:::
+
+
+::: {.cell .markdown}
+
 For this experiment, we'll use a couple of `L2Bridge` networks - one on each side of the router.
 
+:::
+
+
+::: {.cell .code}
 
 ```python
 netR = slice.add_l2network(name='net_r', type='L2Bridge', interfaces=[ifaceRomeo,  ifaceRouterR])
 netJ = slice.add_l2network(name='net_j', type='L2Bridge', interfaces=[ifaceJuliet, ifaceRouterJ])
 ```
 
+:::
+
+
+::: {.cell .code}
+
 
 ```python
 print(f"{slice.list_interfaces()}")
 ```
 
+:::
+
+
+::: {.cell .markdown}
+
 Note: Basic NICs claim 0 bandwidth but are 100 Gbps shared by all Basic NICs on the host.
 
+
+:::
+
+::: {.cell .markdown}
 
 Now we are ready to reserve the resources and get the login details.
 
@@ -259,19 +394,44 @@ This step will take a little while, as we communicate with FABRIC to reserve our
 - Then, you'll wait a few more minutes for some `wait_ssh` and `post_boot_config` processes to run.
 - Next, it will show the MAC address and interface name of each of the "dataplane" interfaces you set up, as these come up
 
+:::
+
+
+::: {.cell .code}
+
 
 ```python
 slice.submit()
 ```
 
+:::
+
+
+::: {.cell .markdown}
+
 Our final slice status should be "StableOK":
+
+:::
+
+
+::: {.cell .code}
 
 
 ```python
 print(f"{slice}")
 ```
 
+:::
+
+
+::: {.cell .markdown}
+
 and we can get login details for every node:
+
+:::
+
+
+::: {.cell .code}
 
 
 ```python
@@ -279,10 +439,22 @@ for node in slice.get_nodes():
     print(f"{node}")
 ```
 
+:::
+
+::: {.cell .markdown}
+
 Now our nodes are ready to log in. (In fact, you can launch a Bash terminal directly in this Jupyter environment, copy the SSH command, and log in to an interactive session.)
+
+:::
+
+::: {.cell .markdown}
 
 
 ## Set up variables
+
+:::
+
+::: {.cell .markdown}
 
 
 We're going to switch to Bash in a moment. But first, we're going to set up some variables in Python3 that we will share with our Bash commands.
@@ -292,10 +464,20 @@ We need:
 * the login details for each host (username and management IP address)
 * the name of each network interface on each dataplane network, which we can get with this handy `get_interface_map` function
 
+:::
+
+
+::: {.cell .code}
+
 
 ```python
 slice.get_interface_map()
 ```
+
+:::
+
+
+::: {.cell .code}
 
 
 ```python
@@ -315,24 +497,56 @@ ROUTER_IFACE_J = slice.get_interface_map()['net_j']['router']['ifname']
 ROUTER_IFACE_R = slice.get_interface_map()['net_r']['router']['ifname']
 ```
 
+:::
+
+
+::: {.cell .markdown}
+
 Now, we have a few ways to run commands on a remote host.
+
+:::
+
+::: {.cell .markdown}
 
 We can open a launcher and then SSH directly to get a terminal interface:
 
+:::
+
+
+::: {.cell .code}
 
 ```bash
 %%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
 echo "ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $1 -J $2@$3 $4@$5"
 ```
 
+:::
+
+::: {.cell .markdown}
+
 We can use the `fablib` Python library to execute commands on the remote host::
+
+:::
+
+
+::: {.cell .code}
 
 
 ```python
 slice.get_node('romeo').execute("echo 'Hello from:'; hostname")
 ```
 
+:::
+
+
+::: {.cell .markdown}
+
 Or we can use Bash "magic" in our notebook to run commands over SSH:
+
+:::
+
+
+::: {.cell .code}
 
 
 ```bash
@@ -347,13 +561,27 @@ exit
 EOF
 ```
 
+:::
+
+::: {.cell .markdown}
+
+
 ## Set up resources over SSH
+
+:::
+
+::: {.cell .markdown}
+
 
 In our initial setup, we will:
 
 * `touch ~/.hushlogin` so we don't have to see the login banner for each cell
 * install some software packages
 
+:::
+
+
+::: {.cell .code}
 
 
 ```bash
@@ -370,6 +598,11 @@ exit
 EOF
 ```
 
+:::
+
+
+::: {.cell .code}
+
 
 ```bash
 %%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$JULIET_USER" "$JULIET_IP" "$JULIET_IFACE_J"
@@ -384,6 +617,11 @@ sudo apt -y install net-tools iperf3 moreutils
 exit
 EOF
 ```
+
+:::
+
+
+::: {.cell .code}
 
 
 ```bash
@@ -400,7 +638,17 @@ exit
 EOF
 ```
 
+:::
+
+::: {.cell .markdown}
+
+
 Next, we will set up networking.
+
+:::
+
+
+::: {.cell .code}
 
 
 ```bash
@@ -419,6 +667,10 @@ exit
 EOF
 ```
 
+:::
+
+
+::: {.cell .code}
 
 ```bash
 %%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$JULIET_USER" "$JULIET_IP" "$JULIET_IFACE_J"
@@ -436,6 +688,10 @@ exit
 EOF
 ```
 
+:::
+
+
+::: {.cell .code}
 
 ```bash
 %%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROUTER_USER" "$ROUTER_IP" "$ROUTER_IFACE_R" "$ROUTER_IFACE_J"
@@ -455,8 +711,17 @@ exit
 EOF
 ```
 
+:::
+
+::: {.cell .markdown}
+
+
 Now we can test it! We will `ping` from romeo to juliet:
 
+:::
+
+
+::: {.cell .code}
 
 ```bash
 %%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP" "$ROMEO_IFACE_R"
@@ -470,7 +735,17 @@ exit
 EOF
 ```
 
+:::
+
+::: {.cell .markdown}
+
+
 Let's also test capacity across this network. To do this, we need to start an `iperf3` server in the *background* on juliet:
+
+:::
+
+
+::: {.cell .code}
 
 
 ```bash
@@ -485,9 +760,14 @@ exit
 EOF
 ```
 
+:::
+
+::: {.cell .markdown}
+
+
 Then we can run the `iperf3` client on romeo (in the *foreground*):
 
-
+:::
 
 ```bash
 %%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
@@ -500,6 +780,9 @@ iperf3 -t 10 -i 1 -c 192.168.1.2
 exit
 EOF
 ```
+
+::: {.cell .markdown}
+
 
 For this experiment, we will configure the router as a 10Mbps bottleneck:
 
@@ -525,6 +808,9 @@ sudo tc qdisc show dev $7
 exit
 EOF
 ```
+
+::: {.cell .markdown}
+
 
 Let's validate this capacity now:
 
@@ -554,7 +840,13 @@ exit
 EOF
 ```
 
+::: {.cell .markdown}
+
+
 ## TCP congestion control experiment
+
+::: {.cell .markdown}
+
 
 Now we are ready to run the actual experiment!
 
@@ -574,6 +866,9 @@ iperf3 -1 -s
 exit
 EOF
 ```
+
+::: {.cell .markdown}
+
 
 Then, we will run two commands in quick sequence. The first one will start an `iperf3` client process in the background 5 seconds after we run the cell. The second one will run in the foreground and collect data about TCP sessions. (Note: we have to escape the `$` character in our Bash script.)
 
@@ -614,6 +909,8 @@ exit
 EOF
 ```
 
+::: {.cell .markdown}
+
 After 70 seconds, the experiment run will be over.  Check the `iperf3` output to make sure it looks good.
 
 
@@ -628,6 +925,8 @@ tail -n 12 iperf-out.txt
 exit
 EOF
 ```
+
+::: {.cell .markdown}
 
 Then, process the `ss` data. Note that we need to escape `$` symbols in our processing script.
 
@@ -659,7 +958,11 @@ exit
 EOF
 ```
 
+::: {.cell .markdown}
+
 ## Data analysis
+
+::: {.cell .markdown}
 
 One nice thing about working in a notebook is that we can do data analysis inline!
 
@@ -730,7 +1033,13 @@ fig.legend(loc='upper right', ncol=2);
 
 ```
 
+::: {.cell .markdown}
+
 ## Adaptive video experiment 
+
+
+::: {.cell .markdown}
+
 
 Our next experiment will be this [adaptive video](https://witestlab.poly.edu/blog/adaptive-video-reproducing/) experiment.
 
@@ -751,6 +1060,9 @@ exit
 EOF
 ```
 
+::: {.cell .markdown}
+
+
 Set up romeo as an adaptive video "client".
 
 
@@ -766,6 +1078,8 @@ exit
 EOF
 ```
 
+
+::: {.cell .markdown}
 
 In this experiment, we will use the DASH implementation developed for the following paper:
 
@@ -803,6 +1117,8 @@ exit
 EOF
 ```
 
+::: {.cell .markdown}
+
 Make sure the video server is ready on juliet. The output should show the BigBuckBunny directories:
 
 
@@ -817,6 +1133,9 @@ ls /var/www/html/media/BigBuckBunny/4sec
 exit
 EOF
 ```
+
+::: {.cell .markdown}
+
 
 The web server directory now contains 4-second segments of the "open" video clip [Big Buck Bunny](https://peach.blender.org/about/), encoded at different quality levels. The Big Buck Bunny DASH dataset is from:
 
@@ -890,6 +1209,8 @@ exit
 EOF
 ```
 
+::: {.cell .markdown}
+
 The log files will be inside `ASTREAM_LOGS`, and the video files will be inside a directory beginning with `TEMP_`. We will get the directory/file names from this next command, and use it to modify the following cells.
 
 
@@ -905,6 +1226,8 @@ ls -alstr ~/ASTREAM_LOGS
 exit
 EOF
 ```
+
+::: {.cell .markdown}
 
 We can recreate the video from the segments, which are stored in the `TEMP_` directory.
 
@@ -938,12 +1261,16 @@ from IPython.display import Video
 Video("BigBuckBunny.mp4")
 ```
 
+::: {.cell .markdown}
+
 We can also retrieve the adaptive video log data.
 
 
 ```python
 slice.get_node("romeo").download_file("/home/fabric/work/DASH_BUFFER_LOG.csv", "/home/ubuntu/ASTREAM_LOGS/DASH_BUFFER_LOG_2022-04-14.14_55_27.csv")
 ```
+
+::: {.cell .markdown}
 
 and do some data analysis:
 
@@ -968,7 +1295,14 @@ plt.title("Video rate (bps)");
 plt.xlabel("Time (s)");
 ```
 
+::: {.cell .markdown}
+
+
 ## Delete slice
+
+
+::: {.cell .markdown}
+
 
 When you are finished, delete your slice to free resources for other experimenters.
 
