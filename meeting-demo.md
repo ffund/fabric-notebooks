@@ -769,6 +769,10 @@ Then we can run the `iperf3` client on romeo (in the *foreground*):
 
 :::
 
+
+::: {.cell .code}
+
+
 ```bash
 %%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
 ssh  -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
@@ -780,12 +784,18 @@ iperf3 -t 10 -i 1 -c 192.168.1.2
 exit
 EOF
 ```
+:::
+
 
 ::: {.cell .markdown}
 
 
 For this experiment, we will configure the router as a 10Mbps bottleneck:
 
+:::
+
+
+::: {.cell .code}
 
 ```bash
 %%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROUTER_USER" "$ROUTER_IP" "$ROUTER_IFACE_R" "$ROUTER_IFACE_J"
@@ -809,11 +819,17 @@ exit
 EOF
 ```
 
+:::
+
 ::: {.cell .markdown}
 
 
 Let's validate this capacity now:
 
+:::
+
+
+::: {.cell .code}
 
 ```bash
 %%bash --bg -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$JULIET_USER" "$JULIET_IP"
@@ -826,6 +842,11 @@ iperf3 -1 -s
 exit
 EOF
 ```
+
+:::
+
+
+::: {.cell .code}
 
 
 ```bash
@@ -840,10 +861,14 @@ exit
 EOF
 ```
 
+:::
+
 ::: {.cell .markdown}
 
 
 ## TCP congestion control experiment
+
+:::
 
 ::: {.cell .markdown}
 
@@ -854,6 +879,10 @@ Our first demo will be this [basic congestion control](https://witestlab.poly.ed
 
 On the juliet host, set up an `iperf3` server in the *background* with
 
+:::
+
+
+::: {.cell .code}
 
 ```bash
 %%bash --bg -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$JULIET_USER" "$JULIET_IP"
@@ -867,11 +896,17 @@ exit
 EOF
 ```
 
+:::
+
 ::: {.cell .markdown}
 
 
 Then, we will run two commands in quick sequence. The first one will start an `iperf3` client process in the background 5 seconds after we run the cell. The second one will run in the foreground and collect data about TCP sessions. (Note: we have to escape the `$` character in our Bash script.)
 
+:::
+
+
+::: {.cell .code}
 
 ```bash
 %%bash --bg -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
@@ -886,6 +921,10 @@ exit
 EOF
 ```
 
+:::
+
+
+::: {.cell .code}
 
 ```bash
 %%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
@@ -909,10 +948,16 @@ exit
 EOF
 ```
 
+:::
+
 ::: {.cell .markdown}
 
 After 70 seconds, the experiment run will be over.  Check the `iperf3` output to make sure it looks good.
 
+:::
+
+
+::: {.cell .code}
 
 ```bash
 %%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
@@ -926,10 +971,16 @@ exit
 EOF
 ```
 
+:::
+
 ::: {.cell .markdown}
 
 Then, process the `ss` data. Note that we need to escape `$` symbols in our processing script.
 
+:::
+
+
+::: {.cell .code}
 
 ```bash
 %%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
@@ -958,9 +1009,13 @@ exit
 EOF
 ```
 
+:::
+
 ::: {.cell .markdown}
 
 ## Data analysis
+
+:::
 
 ::: {.cell .markdown}
 
@@ -968,16 +1023,28 @@ One nice thing about working in a notebook is that we can do data analysis inlin
 
 First, we retrieve the data file from the romeo host. We can call `download_file` on the node, specifying the local path to save to and the remote path to download from.
 
+:::
+
+
+::: {.cell .code}
 
 ```python
 slice.get_node("romeo").download_file("/home/fabric/work/sender-ss.csv", "/home/ubuntu/sender-ss.csv")
 ```
+:::
+
+
+::: {.cell .code}
 
 
 ```python
 import pandas as pd
 import matplotlib.pyplot as plt
 ```
+:::
+
+
+::: {.cell .code}
 
 
 ```python
@@ -985,13 +1052,27 @@ df = pd.read_csv("sender-ss.csv", names=['time', 'sender', 'retx_unacked', 'retx
 df
 ```
 
+:::
+
+
+::: {.cell .markdown}
+
 One of the flows is the "control" flow, which we'll want to exclude from our analysis:
+
+:::
+
+
+::: {.cell .code}
 
 
 ```python
 s = df.groupby('sender').size()
 s
 ```
+:::
+
+
+::: {.cell .code}
 
 
 ```python
@@ -999,12 +1080,20 @@ df_filtered = df[df.groupby("sender")['sender'].transform('size') > 100]
 df_filtered
 ```
 
+:::
+
+
+::: {.cell .code}
 
 ```python
 senders = df_filtered.sender.unique()
 senders
 ```
 
+:::
+
+
+::: {.cell .code}
 
 ```python
 time_min = df_filtered.time.min()
@@ -1012,6 +1101,10 @@ cwnd_max = 1.1*df_filtered[df_filtered.time - time_min >=2].cwnd.max()
 dfs = [df_filtered[df_filtered.sender==senders[i]] for i in range(3)]
 ```
 
+:::
+
+
+::: {.cell .code}
 
 ```python
 fig, axs = plt.subplots(len(senders), sharex=True, figsize=(12,8))
@@ -1033,10 +1126,13 @@ fig.legend(loc='upper right', ncol=2);
 
 ```
 
+:::
+
 ::: {.cell .markdown}
 
 ## Adaptive video experiment 
 
+:::
 
 ::: {.cell .markdown}
 
@@ -1044,6 +1140,11 @@ fig.legend(loc='upper right', ncol=2);
 Our next experiment will be this [adaptive video](https://witestlab.poly.edu/blog/adaptive-video-reproducing/) experiment.
 
 Set up juliet as an adaptive video "server". We will run this in the background, just so that we can continue to romeo in the meantime, but we need to make sure it's finished before we start the experiment.
+
+:::
+
+
+::: {.cell .code}
 
 
 ```bash
@@ -1060,11 +1161,18 @@ exit
 EOF
 ```
 
+:::
+
 ::: {.cell .markdown}
 
 
 Set up romeo as an adaptive video "client".
 
+
+:::
+
+
+::: {.cell .code}
 
 ```bash
 %%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
@@ -1078,6 +1186,7 @@ exit
 EOF
 ```
 
+:::
 
 ::: {.cell .markdown}
 
@@ -1104,6 +1213,10 @@ You can see [the "SARA" implementation here](https://github.com/pari685/AStream/
 We will retrieve this open-source implementation on romeo:
 
 
+:::
+
+
+::: {.cell .code}
 
 ```bash
 %%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
@@ -1116,11 +1229,16 @@ git clone https://github.com/pari685/AStream
 exit
 EOF
 ```
+:::
 
 ::: {.cell .markdown}
 
 Make sure the video server is ready on juliet. The output should show the BigBuckBunny directories:
 
+:::
+
+
+::: {.cell .code}
 
 ```bash
 %%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$JULIET_USER" "$JULIET_IP"
@@ -1133,6 +1251,7 @@ ls /var/www/html/media/BigBuckBunny/4sec
 exit
 EOF
 ```
+:::
 
 ::: {.cell .markdown}
 
@@ -1143,6 +1262,11 @@ The web server directory now contains 4-second segments of the "open" video clip
 
 
 Now, we can try an experiment! We will retrieve the first 30 segments of the video, using the "netflix" policy. But we will also set the router data rate to be 1Mbps for 20 seconds, then 100Kbps for 20 seconds, and then back to 1Mbps.
+
+:::
+
+
+::: {.cell .code}
 
 
 ```bash
@@ -1196,6 +1320,10 @@ exit
 EOF
 ```
 
+:::
+
+
+::: {.cell .code}
 
 ```bash
 %%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
@@ -1209,9 +1337,16 @@ exit
 EOF
 ```
 
+:::
+
 ::: {.cell .markdown}
 
 The log files will be inside `ASTREAM_LOGS`, and the video files will be inside a directory beginning with `TEMP_`. We will get the directory/file names from this next command, and use it to modify the following cells.
+
+:::
+
+
+::: {.cell .code}
 
 
 ```bash
@@ -1227,10 +1362,16 @@ exit
 EOF
 ```
 
+:::
+
 ::: {.cell .markdown}
 
 We can recreate the video from the segments, which are stored in the `TEMP_` directory.
 
+:::
+
+
+::: {.cell .code}
 
 ```bash
 %%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
@@ -1249,10 +1390,20 @@ exit
 EOF
 ```
 
+:::
+
+
+::: {.cell .code}
+
 
 ```python
 slice.get_node("romeo").download_file("/home/fabric/work/BigBuckBunny.mp4", "/home/ubuntu/BigBuckBunny.mp4")
 ```
+
+:::
+
+
+::: {.cell .code}
 
 
 ```python
@@ -1261,19 +1412,31 @@ from IPython.display import Video
 Video("BigBuckBunny.mp4")
 ```
 
+:::
+
 ::: {.cell .markdown}
 
 We can also retrieve the adaptive video log data.
+
+:::
+
+
+::: {.cell .code}
 
 
 ```python
 slice.get_node("romeo").download_file("/home/fabric/work/DASH_BUFFER_LOG.csv", "/home/ubuntu/ASTREAM_LOGS/DASH_BUFFER_LOG_2022-04-14.14_55_27.csv")
 ```
+:::
 
 ::: {.cell .markdown}
 
 and do some data analysis:
 
+:::
+
+
+::: {.cell .code}
 
 ```python
 import matplotlib.pyplot as plt
@@ -1294,12 +1457,15 @@ plt.plot(dash[dash.Action!="Writing"].EpochTime, dash[dash.Action!="Writing"].Bi
 plt.title("Video rate (bps)");
 plt.xlabel("Time (s)");
 ```
+:::
+
 
 ::: {.cell .markdown}
 
 
 ## Delete slice
 
+:::
 
 ::: {.cell .markdown}
 
@@ -1307,6 +1473,13 @@ plt.xlabel("Time (s)");
 When you are finished, delete your slice to free resources for other experimenters.
 
 
+:::
+
+
+::: {.cell .code}
+
 ```python
 fablib.delete_slice(SLICENAME)
 ```
+
+:::
