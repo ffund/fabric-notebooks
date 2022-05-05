@@ -344,3 +344,595 @@ for node in slice.get_nodes():
     print(f"{node}")
 ```
 :::
+
+
+
+::: {.cell .markdown}
+
+In the rest of this notebook, we'll execute commands on these nodes by accessing them over SSH. We'll define some variables with the login details and NIC names for the three nodes to assist with this:
+
+:::
+
+
+::: {.cell .code}
+
+```python
+# variables specific to this slice
+ROMEO_IP = str(slice.get_node("romeo").get_management_ip())
+ROMEO_USER =  str(slice.get_node("romeo").get_username())
+ROMEO_IFACE_R = slice.get_interface_map()['net_r']['romeo']['ifname']
+
+JULIET_IP = str(slice.get_node("juliet").get_management_ip())
+JULIET_USER =  str(slice.get_node("juliet").get_username())
+JULIET_IFACE_J = slice.get_interface_map()['net_j']['juliet']['ifname']
+
+
+ROUTER_IP = str(slice.get_node("router").get_management_ip())
+ROUTER_USER =  str(slice.get_node("router").get_username())
+ROUTER_IFACE_J = slice.get_interface_map()['net_j']['router']['ifname']
+ROUTER_IFACE_R = slice.get_interface_map()['net_r']['router']['ifname']
+```
+:::
+
+
+
+
+::: {.cell .markdown}
+
+### One-time setup
+
+
+:::
+
+
+::: {.cell .markdown}
+
+
+### Set up network
+
+:::
+
+::: {.cell .markdown}
+
+
+In our initial setup, we will:
+
+* `touch ~/.hushlogin` so we don't have to see the login banner for each cell
+* install some software packages
+
+:::
+
+
+::: {.cell .code}
+
+
+```bash
+%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP" "$ROMEO_IFACE_R"
+ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $1 -J $2@$3 $4@$5 << EOF
+##############################################
+
+touch ~/.hushlogin
+sudo apt update
+sudo apt -y install net-tools iperf3 moreutils
+
+##############################################
+exit
+EOF
+```
+
+:::
+
+
+::: {.cell .code}
+
+
+```bash
+%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$JULIET_USER" "$JULIET_IP" "$JULIET_IFACE_J"
+ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $1 -J $2@$3 $4@$5 << EOF
+##############################################
+
+touch ~/.hushlogin
+sudo apt update
+sudo apt -y install net-tools iperf3 moreutils
+
+##############################################
+exit
+EOF
+```
+
+:::
+
+
+::: {.cell .code}
+
+
+```bash
+%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROUTER_USER" "$ROUTER_IP"
+ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $1 -J $2@$3 $4@$5 << EOF
+##############################################
+
+touch ~/.hushlogin
+sudo apt update
+sudo apt -y install net-tools
+
+##############################################
+exit
+EOF
+```
+
+:::
+
+::: {.cell .markdown}
+
+
+Next, we will set up networking.
+
+:::
+
+
+::: {.cell .code}
+
+
+```bash
+%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP" "$ROMEO_IFACE_R"
+ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $1 -J $2@$3 $4@$5 << EOF
+##############################################
+
+sudo ip addr add 192.168.0.2/24 dev $6
+sudo ip route add 192.168.1.0/24 via 192.168.0.1 dev $6 
+
+ip addr show dev $6
+ip route show
+
+##############################################
+exit
+EOF
+```
+
+:::
+
+
+::: {.cell .code}
+
+```bash
+%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$JULIET_USER" "$JULIET_IP" "$JULIET_IFACE_J"
+ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $1 -J $2@$3 $4@$5 << EOF
+##############################################
+
+sudo ip addr add 192.168.1.2/24 dev $6
+sudo ip route add 192.168.0.0/24 via 192.168.1.1 dev $6 
+
+ip addr show dev $6
+ip route show
+
+##############################################
+exit
+EOF
+```
+
+:::
+
+
+::: {.cell .code}
+
+```bash
+%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROUTER_USER" "$ROUTER_IP" "$ROUTER_IFACE_R" "$ROUTER_IFACE_J"
+ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $1 -J $2@$3 $4@$5 << EOF
+##############################################
+
+sudo ip addr add 192.168.0.1/24 dev $6
+sudo ip addr add 192.168.1.1/24 dev $7
+sudo sysctl -w net.ipv4.ip_forward=1
+
+ip addr show dev $6
+ip addr show dev $7
+ip route show
+
+##############################################
+exit
+EOF
+```
+
+:::
+
+::: {.cell .markdown}
+
+
+Now we can test it! We will `ping` from romeo to juliet:
+
+:::
+
+
+::: {.cell .code}
+
+```bash
+%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP" "$ROMEO_IFACE_R"
+ssh -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
+##############################################
+
+ping -c 5 192.168.1.2
+
+##############################################
+exit
+EOF
+```
+
+:::
+
+
+
+::: {.cell .markdown}
+
+### Set up for adaptive video experiment
+
+:::
+
+::: {.cell .markdown}
+
+
+Next, we will set up juliet as an adaptive video "server". We will run this in the background, just so that we can continue to romeo in the meantime, but we need to make sure it's finished before we start the experiment.
+
+:::
+
+
+::: {.cell .code}
+
+
+```bash
+%%bash --bg -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$JULIET_USER" "$JULIET_IP"
+ssh  -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
+##############################################
+
+sudo apt install -y apache2  
+wget https://nyu.box.com/shared/static/d6btpwf5lqmkqh53b52ynhmfthh2qtby.tgz -O media.tgz  
+sudo tar -v -xzf media.tgz -C /var/www/html/  
+
+##############################################
+exit
+EOF
+```
+
+:::
+
+::: {.cell .markdown}
+
+
+Set up romeo as an adaptive video "client".
+
+
+:::
+
+
+::: {.cell .code}
+
+```bash
+%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
+ssh  -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
+##############################################
+
+sudo apt install -y python2 ffmpeg
+
+##############################################
+exit
+EOF
+```
+
+:::
+
+::: {.cell .markdown}
+
+In this experiment, we will use the DASH implementation developed for the following paper:
+
+> P. Juluri, V. Tamarapalli and D. Medhi, "SARA: Segment aware rate adaptation algorithm for dynamic adaptive streaming over HTTP," 2015 IEEE International Conference on Communication Workshop (ICCW), 2015, pp. 1765-1770, doi: 10.1109/ICCW.2015.7247436.
+
+which is available on [Github](https://github.com/pari685/AStream). It includes three DASH decision policies:
+
+The "basic" policy selects the video rate that is one level lower than the current network data rate. You can see [the "basic" implementation here](https://github.com/pari685/AStream/blob/master/dist/client/adaptation/basic_dash2.py).
+
+The buffer-based rate adaptation ("Netflix") algorithm uses the estimated network data rate only during the initial startup phase. Otherwise, it makes quality decisions based on the buffer occupancy. It is based on the algorithm described in the following paper:
+
+> Te-Yuan Huang, Ramesh Johari, Nick McKeown, Matthew Trunnell, and Mark Watson. 2014. A buffer-based approach to rate adaptation: evidence from a large video streaming service. In Proceedings of the 2014 ACM conference on SIGCOMM (SIGCOMM '14). Association for Computing Machinery, New York, NY, USA, 187–198. DOI:https://doi.org/10.1145/2619239.2626296
+
+You can see [the "Netflix" implementation here](https://github.com/pari685/AStream/blob/master/dist/client/adaptation/netflix_dash.py). 
+
+Finally, the segment-aware rate adaptation ("SARA") algorithm uses the actual size of the segment and data rate of the network to estimate the time it would take to download the next segment. Then, given the current buffer occupancy, it selects the best possible video quality while avoiding buffer starvation. It is described in 
+
+> P. Juluri, V. Tamarapalli and D. Medhi, "SARA: Segment aware rate adaptation algorithm for dynamic adaptive streaming over HTTP," 2015 IEEE International Conference on Communication Workshop (ICCW), 2015, pp. 1765-1770, doi: 10.1109/ICCW.2015.7247436.
+
+You can see [the "SARA" implementation here](https://github.com/pari685/AStream/blob/master/dist/client/adaptation/weighted_dash.py).
+
+We will retrieve this open-source implementation on romeo:
+
+
+:::
+
+
+::: {.cell .code}
+
+```bash
+%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
+ssh  -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
+##############################################
+
+git clone https://github.com/pari685/AStream  
+
+##############################################
+exit
+EOF
+```
+:::
+
+::: {.cell .markdown}
+
+Make sure the video server is ready on juliet. The output should show the BigBuckBunny directories:
+
+:::
+
+
+::: {.cell .code}
+
+```bash
+%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$JULIET_USER" "$JULIET_IP"
+ssh  -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
+##############################################
+
+ls /var/www/html/media/BigBuckBunny/4sec
+
+##############################################
+exit
+EOF
+```
+:::
+
+::: {.cell .markdown}
+
+
+The web server directory now contains 4-second segments of the "open" video clip [Big Buck Bunny](https://peach.blender.org/about/), encoded at different quality levels. The Big Buck Bunny DASH dataset is from:
+
+> Stefan Lederer, Christopher Müller, and Christian Timmerer. 2012. Dynamic adaptive streaming over HTTP dataset. In Proceedings of the 3rd Multimedia Systems Conference (MMSys '12). Association for Computing Machinery, New York, NY, USA, 89–94. DOI:https://doi.org/10.1145/2155555.2155570
+
+
+
+:::
+
+::: {.cell .markdown}
+
+
+### Execute experiment
+
+
+:::
+
+::: {.cell .markdown}
+
+Now, we can try an experiment! We will retrieve the first 30 segments of the video, using the "netflix" policy. But we will also set the router data rate to be 1Mbps for 20 seconds, then 100Kbps for 20 seconds, and then back to 1Mbps.
+
+:::
+
+
+::: {.cell .code}
+
+
+```bash
+%%bash --bg -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROUTER_USER" "$ROUTER_IP" "$ROUTER_IFACE_R" "$ROUTER_IFACE_J"
+ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $1 -J $2@$3 $4@$5 << EOF
+##############################################
+
+sudo tc qdisc del dev $6 root  
+sudo tc qdisc add dev $6 root handle 1: htb default 3  
+sudo tc class add dev $6 parent 1: classid 1:3 htb rate 1Mbit  
+sudo tc qdisc add dev $6 parent 1:3 handle 3: bfifo limit 0.1MB
+sudo tc qdisc show dev $6
+        
+sudo tc qdisc del dev $7 root  
+sudo tc qdisc add dev $7 root handle 1: htb default 3  
+sudo tc class add dev $7 parent 1: classid 1:3 htb rate 1Mbit  
+sudo tc qdisc add dev $7 parent 1:3 handle 3: bfifo limit 0.1MB  
+sudo tc qdisc show dev $7
+
+sleep 20
+
+sudo tc qdisc del dev $6 root  
+sudo tc qdisc add dev $6 root handle 1: htb default 3  
+sudo tc class add dev $6 parent 1: classid 1:3 htb rate 100Kbit  
+sudo tc qdisc add dev $6 parent 1:3 handle 3: bfifo limit 0.1MB
+sudo tc qdisc show dev $6
+        
+sudo tc qdisc del dev $7 root  
+sudo tc qdisc add dev $7 root handle 1: htb default 3  
+sudo tc class add dev $7 parent 1: classid 1:3 htb rate 100Kbit  
+sudo tc qdisc add dev $7 parent 1:3 handle 3: bfifo limit 0.1MB  
+sudo tc qdisc show dev $7
+
+sleep 20
+
+
+sudo tc qdisc del dev $6 root  
+sudo tc qdisc add dev $6 root handle 1: htb default 3  
+sudo tc class add dev $6 parent 1: classid 1:3 htb rate 1Mbit  
+sudo tc qdisc add dev $6 parent 1:3 handle 3: bfifo limit 0.1MB
+sudo tc qdisc show dev $6
+        
+sudo tc qdisc del dev $7 root  
+sudo tc qdisc add dev $7 root handle 1: htb default 3  
+sudo tc class add dev $7 parent 1: classid 1:3 htb rate 1Mbit  
+sudo tc qdisc add dev $7 parent 1:3 handle 3: bfifo limit 0.1MB  
+sudo tc qdisc show dev $7
+
+##############################################
+exit
+EOF
+```
+
+:::
+
+
+::: {.cell .code}
+
+```bash
+%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
+ssh  -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
+##############################################
+
+python2 ~/AStream/dist/client/dash_client.py -m http://192.168.1.2/media/BigBuckBunny/4sec/BigBuckBunny_4s.mpd -p 'netflix' -n 30 -d
+
+##############################################
+exit
+EOF
+```
+
+:::
+
+::: {.cell .markdown}
+
+The log files will be inside `ASTREAM_LOGS`, and the video files will be inside a directory beginning with `TEMP_`. We will get the directory/file names from this next command, and use it to modify the following cells.
+
+:::
+
+
+::: {.cell .code}
+
+
+```bash
+%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
+ssh  -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
+##############################################
+
+ls -alstr ~/
+ls -alstr ~/ASTREAM_LOGS
+
+##############################################
+exit
+EOF
+```
+
+:::
+
+
+::: {.cell .markdown}
+
+
+### Data analysis
+
+
+:::
+
+::: {.cell .markdown}
+
+We can recreate the video from the segments, which are stored in the `TEMP_` directory.
+
+:::
+
+
+::: {.cell .code}
+
+```bash
+%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
+ssh  -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
+##############################################
+
+cd ~/TEMP_MBvypN
+rm -f BigBuckBunny.mp4 # if it exists
+cat BigBuckBunny_4s_init.mp4 \$(ls -vx BigBuckBunny_*.m4s) > BigBuckBunny_tmp.mp4
+ffmpeg -i  BigBuckBunny_tmp.mp4 -c copy BigBuckBunny.mp4
+
+mv BigBuckBunny.mp4 ~/
+
+##############################################
+exit
+EOF
+```
+
+:::
+
+
+::: {.cell .code}
+
+
+```python
+slice.get_node("romeo").download_file("/home/fabric/work/BigBuckBunny.mp4", "/home/ubuntu/BigBuckBunny.mp4")
+```
+
+:::
+
+
+::: {.cell .code}
+
+
+```python
+from IPython.display import Video
+
+Video("BigBuckBunny.mp4")
+```
+
+:::
+
+::: {.cell .markdown}
+
+We can also retrieve the adaptive video log data.
+
+:::
+
+
+::: {.cell .code}
+
+
+```python
+slice.get_node("romeo").download_file("/home/fabric/work/DASH_BUFFER_LOG.csv", "/home/ubuntu/ASTREAM_LOGS/DASH_BUFFER_LOG_2022-04-14.14_55_27.csv")
+```
+:::
+
+::: {.cell .markdown}
+
+and do some data analysis:
+
+:::
+
+
+::: {.cell .code}
+
+```python
+import matplotlib.pyplot as plt
+import pandas as pd
+
+c = {'INITIAL_BUFFERING': 'violet', 'PLAY': 'lightcyan', 'BUFFERING': 'lightpink'}
+
+dash = pd.read_csv("DASH_BUFFER_LOG.csv")
+dash = dash.loc[dash.CurrentPlaybackState.isin(c.keys() )]
+states = pd.DataFrame({'startState': dash.CurrentPlaybackState[0:-2].values, 'startTime': dash.EpochTime[0:-2].values,
+                        'endState':  dash.CurrentPlaybackState[1:-1].values, 'endTime':   dash.EpochTime[1:-1].values})
+
+
+for index, s in states.iterrows():
+  plt.axvspan(s['startTime'], s['endTime'],  color=c[s['startState']], alpha=1) 
+
+plt.plot(dash[dash.Action!="Writing"].EpochTime, dash[dash.Action!="Writing"].Bitrate, 'kx:')
+plt.title("Video rate (bps)");
+plt.xlabel("Time (s)");
+```
+:::
+
+
+::: {.cell .markdown}
+
+
+## Delete slice
+
+:::
+
+::: {.cell .markdown}
+
+
+When you are finished, delete your slice to free resources for other experimenters.
+
+
+:::
+
+
+::: {.cell .code}
+
+```python
+fablib.delete_slice(SLICENAME)
+```
+
+:::
