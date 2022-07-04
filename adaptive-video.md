@@ -158,12 +158,15 @@ You can see [the "SARA" implementation here](https://github.com/pari685/AStream/
 
 :::
 
+::: {.cell .markdown}
+
 ### Set up bastion keys
 
 In the next step, we will set up personal variables before attempting to reserve resources. It's important that you get the variables right *before* you import the `fablib` library, because `fablib` loads these once when imported and they can't be changed afterwards.
 
 The important details to get right are the bastion username and the bastion key pair:
 
+* project ID: in the FABRIC portal, click on User Profile > My Roles and Projects > and click on your project name. Then copy the Project ID string.
 * bastion username: look for the string after "Bastion login" on [the SSH Keys page in the FABRIC portal](https://portal.fabric-testbed.net/experiments#sshKeys)
 * bastion key pair: if you haven't yet set up bastion keys in your notebook environment (for example, in a previous session), complete the steps described in the [bastion keypair](https://github.com/fabric-testbed/jupyter-examples/blob/master//fabric_examples/fablib_api/bastion_setup.ipynb) notebook. Then, the key location you specify below should be the path to the private key file.
 
@@ -177,6 +180,9 @@ We also need to create an SSH config file, with settings for accessing the basti
 
 ```python
 import os
+
+# Specify your project ID
+os.environ['FABRIC_PROJECT_ID']='XXXXXXXXXXXX'
 
 # Set your Bastion username and private key
 os.environ['FABRIC_BASTION_USERNAME']='ffund_0041777137'
@@ -360,17 +366,17 @@ In the rest of this notebook, we'll execute commands on these nodes by accessing
 # variables specific to this slice
 ROMEO_IP = str(slice.get_node("romeo").get_management_ip())
 ROMEO_USER =  str(slice.get_node("romeo").get_username())
-ROMEO_IFACE_R = slice.get_interface_map()['net_r']['romeo']['ifname']
+ROMEO_IFACE_R = slice.get_node("romeo").get_interfaces()[0].get_os_interface()
 
 JULIET_IP = str(slice.get_node("juliet").get_management_ip())
 JULIET_USER =  str(slice.get_node("juliet").get_username())
-JULIET_IFACE_J = slice.get_interface_map()['net_j']['juliet']['ifname']
+JULIET_IFACE_J = slice.get_node("juliet").get_interfaces()[0].get_os_interface()
 
 
 ROUTER_IP = str(slice.get_node("router").get_management_ip())
 ROUTER_USER =  str(slice.get_node("router").get_username())
-ROUTER_IFACE_J = slice.get_interface_map()['net_j']['router']['ifname']
-ROUTER_IFACE_R = slice.get_interface_map()['net_r']['router']['ifname']
+ROUTER_IFACE_J = slice.get_node("router").get_interface(name='router-if_router_j-p1').get_os_interface()
+ROUTER_IFACE_R = slice.get_node("router").get_interface(name='router-if_router_r-p1').get_os_interface()
 ```
 :::
 
