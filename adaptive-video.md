@@ -868,7 +868,7 @@ slice.get_node("romeo").download_file("/home/fabric/work/BigBuckBunny.mp4", "/ho
 ```python
 from IPython.display import Video
 
-Video("BigBuckBunny.mp4")
+Video("/home/fabric/work/BigBuckBunny.mp4", embed=True)
 ```
 
 :::
@@ -903,7 +903,7 @@ import pandas as pd
 
 c = {'INITIAL_BUFFERING': 'violet', 'PLAY': 'lightcyan', 'BUFFERING': 'lightpink'}
 
-dash = pd.read_csv("DASH_BUFFER_LOG.csv")
+dash = pd.read_csv("/home/fabric/work/DASH_BUFFER_LOG.csv")
 dash = dash.loc[dash.CurrentPlaybackState.isin(c.keys() )]
 states = pd.DataFrame({'startState': dash.CurrentPlaybackState[0:-2].values, 'startTime': dash.EpochTime[0:-2].values,
                         'endState':  dash.CurrentPlaybackState[1:-1].values, 'endTime':   dash.EpochTime[1:-1].values})
