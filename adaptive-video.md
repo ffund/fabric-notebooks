@@ -375,8 +375,8 @@ JULIET_IFACE_J = slice.get_node("juliet").get_interfaces()[0].get_os_interface()
 
 ROUTER_IP = str(slice.get_node("router").get_management_ip())
 ROUTER_USER =  str(slice.get_node("router").get_username())
-ROUTER_IFACE_J = slice.get_node("router").get_interface(name='router-if_router_j-p1').get_os_interface()
-ROUTER_IFACE_R = slice.get_node("router").get_interface(name='router-if_router_r-p1').get_os_interface()
+ROUTER_IFACE_J = slice.get_node("router").get_component("if_router_j").get_interfaces()[0].get_os_interface()
+ROUTER_IFACE_R = slice.get_node("router").get_component("if_router_r").get_interfaces()[0].get_os_interface()
 ```
 :::
 
