@@ -590,7 +590,7 @@ ssh  -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
 ##############################################
 
 sudo apt install -y apache2  
-wget https://nyu.box.com/shared/static/d6btpwf5lqmkqh53b52ynhmfthh2qtby.tgz -O media.tgz  
+wget https://nyu.box.com/shared/static/d6btpwf5lqmkqh53b52ynhmfthh2qtby.tgz -O media.tgz -o wget.log 
 sudo tar -v -xzf media.tgz -C /var/www/html/  
 
 ##############################################
@@ -670,7 +670,7 @@ EOF
 
 ::: {.cell .markdown}
 
-Make sure the video server is ready on juliet. The output should show the BigBuckBunny directories:
+Make sure the video server is ready on juliet. The output should show the BigBuckBunny directories. A "No such file or directory" error message means that the setup process we left running in the background has not yet finished, and you should check again a little while later:
 
 :::
 
