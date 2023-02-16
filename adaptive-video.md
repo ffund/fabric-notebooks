@@ -196,30 +196,10 @@ Give your slice a unique name. You can also set the FABRIC site at which you wan
 :::
 
 
-::: {.cell .code}
-
-```python
-import os
-SLICENAME=os.environ['FABRIC_BASTION_USERNAME'] + "-adaptive-video"
-SITE="TACC"
-```
-:::
-
 ::: {.cell .markdown}
 
-Now we are ready to import `fablib`! And we'll use it to see what resources are available at FABRIC sites.
+Now we are ready to reserve resources.
 :::
-
-
-::: {.cell .code}
-
-```python
-import json
-import traceback
-from fabrictestbed_extensions.fablib.fablib import fablib
-```
-
-
 
 ::: {.cell .markdown}
 
@@ -231,69 +211,112 @@ If you already have the resources for this experiment (for example: you ran this
 
 
 ::: {.cell .code}
-
 ```python
+import json
+import traceback
+import os
+
+SLICENAME="adaptive-video_" + os.getenv('NB_USER')
+
+
 try:
     slice = fablib.get_slice(SLICENAME)
     print("You already have a slice named %s." % SLICENAME)
     print(slice)
 except:
+    slice = fablib.new_slice(name=SLICENAME)
     print("You will need to create a %s slice." % SLICENAME)
 ```
 :::
 
 
+::: {.cell .markdown}
+
+Next, we’ll select a random FABRIC site for our experiment. We’ll make sure to get one that has sufficient capacity for the experiment we’re going to run.
+
+Once we find a suitable site, we’ll print details about available resources at this site.
+
+:::
+
+
+::: {.cell .code}
+```python
+exp_requires = {'core': 4*3, 'nic': 4}
+while True:
+    SITE = fablib.get_random_site()
+    if ( (fablib.resources.get_core_available(SITE) > 1.2*exp_requires['core']) and
+        (fablib.resources.get_component_available(SITE, 'SharedNIC-ConnectX-6') > 1.2**exp_requires['nic']) ):
+        break
+
+fablib.show_site(SITE)
+```
+:::
+
 
 ::: {.cell .markdown}
 
 
-Otherwise, set up your resource request and then submit it to FABRIC:
+Then, set up your resource request and then submit it to FABRIC:
 
 :::
 
 ::: {.cell .code}
-
 ```python
-slice = fablib.new_slice(name=SLICENAME)
+# this cell sets up hosts and routers
+node_names = ["romeo", "router", "juliet"]
+for n in node_names:
+    slice.add_node(name=n, site=site_name, cores=4, image='default_ubuntu_20')
+```
+:::
 
 
-nodeRomeo  = slice.add_node(name="romeo",  site=SITE, cores=1, ram=4, image='default_ubuntu_20')
-nodeJuliet = slice.add_node(name="juliet", site=SITE, cores=1, ram=4, image='default_ubuntu_20')
-nodeRouter = slice.add_node(name="router", site=SITE, image='default_ubuntu_20')
+::: {.cell .code}
+```python
+# this cell sets up the network links
+nets = [
+    {"name": "net0",   "nodes": ["romeo", "router"]},
+    {"name": "net1",  "nodes": ["router", "juliet"]}
+]
+for n in nets:
+    ifaces = [slice.get_node(node).add_component(model="NIC_Basic", name=n["name"]).get_interfaces()[0] for node in n['nodes'] ]
+    slice.add_l2network(name=n["name"], type='L2Bridge', interfaces=ifaces)
+```
+:::
 
-ifaceRomeo   = nodeRomeo.add_component(model="NIC_Basic", name="if_romeo").get_interfaces()[0]
-ifaceJuliet  = nodeJuliet.add_component(model="NIC_Basic", name="if_juliet").get_interfaces()[0]
-ifaceRouterR = nodeRouter.add_component(model="NIC_Basic", name="if_router_r").get_interfaces()[0]
-ifaceRouterJ = nodeRouter.add_component(model="NIC_Basic", name="if_router_j").get_interfaces()[0]
-
-netR = slice.add_l2network(name='net_r', type='L2Bridge', interfaces=[ifaceRomeo,  ifaceRouterR])
-netJ = slice.add_l2network(name='net_j', type='L2Bridge', interfaces=[ifaceJuliet, ifaceRouterJ])
 
 
+::: {.cell .markdown}
+The following cell submits our request to the FABRIC site. The output of this cell will update automatically as the status of our request changes. 
+
+* While it is being prepared, the "State" of the slice will appear as "Configuring". 
+* When it is ready, the "State" of the slice will change to "StableOK".
+:::
+
+
+
+::: {.cell .code}
+```python
 slice.submit()
 ```
 :::
 
 
-
 ::: {.cell .markdown}
-
-Our final slice status should be "StableOK":
-
+Even after the slice is fully configured, it may not be immediately ready for us to log in. The following cell will return when the hosts in the slice are ready for us to use.
 :::
 
 
 ::: {.cell .code}
-
 ```python
-print(f"{slice}")
+slice.wait_ssh(progress=True)
 ```
 :::
 
 
+
 ::: {.cell .markdown}
 
-and we can get login details for every node:
+Then we can get login details for every node:
 
 :::
 
