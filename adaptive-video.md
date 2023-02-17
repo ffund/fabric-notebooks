@@ -462,7 +462,7 @@ Finally, we'll install some software.
 ::: {.cell .code}
 ```python
 for n in ['romeo', 'router', 'juliet']:
-    slice.get_node(name=n).execute("sudo apt update; sudo apt -y install net-tools iperf3 moreutils", quite=True)
+    slice.get_node(name=n).execute("sudo apt update; sudo apt -y install net-tools iperf3 moreutils", quiet=True)
 ```
 :::
 
@@ -477,7 +477,7 @@ and, quiet the login banner so we don't have to see it each time we log in:
 ::: {.cell .code}
 ```python
 for n in ['romeo', 'router', 'juliet']:
-    slice.get_node(name=n).execute("touch ~/.hushlogin", quite=True)
+    slice.get_node(name=n).execute("touch ~/.hushlogin", quiet=True)
 ```
 :::
 
