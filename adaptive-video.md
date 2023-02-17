@@ -243,12 +243,12 @@ Once we find a suitable site, we’ll print details about available resources at
 ```python
 exp_requires = {'core': 4*3, 'nic': 4}
 while True:
-    SITE = fablib.get_random_site()
-    if ( (fablib.resources.get_core_available(SITE) > 1.2*exp_requires['core']) and
-        (fablib.resources.get_component_available(SITE, 'SharedNIC-ConnectX-6') > 1.2**exp_requires['nic']) ):
+    site_name = fablib.get_random_site()
+    if ( (fablib.resources.get_core_available(site_name) > 1.2*exp_requires['core']) and
+        (fablib.resources.get_component_available(site_name, 'SharedNIC-ConnectX-6') > 1.2**exp_requires['nic']) ):
         break
 
-fablib.show_site(SITE)
+fablib.show_site(site_name)
 ```
 :::
 
@@ -353,8 +353,16 @@ JULIET_IFACE_J = slice.get_node("juliet").get_interfaces()[0].get_os_interface()
 
 ROUTER_IP = str(slice.get_node("router").get_management_ip())
 ROUTER_USER =  str(slice.get_node("router").get_username())
-ROUTER_IFACE_J = slice.get_node("router").get_component("if_router_j").get_interfaces()[0].get_os_interface()
-ROUTER_IFACE_R = slice.get_node("router").get_component("if_router_r").get_interfaces()[0].get_os_interface()
+ROUTER_IFACE_J = slice.get_node("router").get_component("net1").get_interfaces()[0].get_os_interface()
+ROUTER_IFACE_R = slice.get_node("router").get_component("net0").get_interfaces()[0].get_os_interface()
+
+FABRIC_SLICE_PRIVATE_KEY_FILE = fablib.get_default_slice_private_key_file
+FABRIC_BASTION_USERNAME = fablib.get_bastion_username()
+FABRIC_BASTION_HOST = fablib.get_bastion_public_addr()
+
+SSH_CMD_ROMEO=slice.get_node('romeo').get_ssh_command()
+SSH_CMD_JULIET=slice.get_node('juliet').get_ssh_command()
+SSH_CMD_ROUTER=slice.get_node('router').get_ssh_command()
 ```
 :::
 
@@ -374,104 +382,110 @@ ROUTER_IFACE_R = slice.get_node("router").get_component("if_router_r").get_inter
 
 ### Set up network
 
+Next, we need to configure our resources - assign IP addresses to network interfaces, enable forwarding on the router, and install any necessary software.
+
 :::
+
+
+
+::: {.cell .markdown}
+First, we'll configure IP addresses:
+:::
+
+
+::: {.cell .code}
+```python
+from ipaddress import ip_address, IPv4Address, IPv4Network
+
+if_conf = {
+    "romeo-net0-p1":   {"addr": "192.168.0.2", "subnet": "192.168.0.0/24"},
+    "router-net0-p1":  {"addr": "192.168.0.1", "subnet": "192.168.0.0/24"},
+    "router-net1-p1":  {"addr": "192.168.1.1", "subnet": "192.168.1.0/24"},
+    "juliet-net1-p1":  {"addr": "192.168.1.2", "subnet": "192.168.1.0/24"}
+}
+
+for iface in slice.get_interfaces():
+    if_name = iface.get_name()
+    iface.ip_addr_add(addr=if_conf[if_name]['addr'], subnet=IPv4Network(if_conf[if_name]['subnet']))
+```
+:::
+
+
+::: {.cell .markdown}
+Then, we'll add routes so that romeo knows how to reach juliet, and vice versa.
+:::
+
+
+::: {.cell .code}
+```python
+rt_conf = [
+    {"name": "romeo",   "addr": "192.168.1.0/24", "gw": "192.168.0.1"},
+    {"name": "juliet",  "addr": "192.168.0.0/24", "gw": "192.168.1.1"}
+]
+for rt in rt_conf:
+    slice.get_node(name=rt['name']).ip_route_add(subnet=IPv4Network(rt['addr']), gateway=rt['gw'])
+```
+:::
+
+
+::: {.cell .markdown}
+And, we'll enable IP forwarding on the router:
+:::
+
+
+::: {.cell .code}
+```python
+for n in ['router']:
+    slice.get_node(name=n).execute("sudo sysctl -w net.ipv4.ip_forward=1")
+```
+:::
+
+
+::: {.cell .markdown}
+Let's make sure that all of the network interfaces are brought up:
+:::
+
+
+::: {.cell .code}
+```python
+for iface in slice.get_interfaces():
+    iface.ip_link_up()
+```
+:::
+
+
+::: {.cell .markdown}
+Finally, we'll install some software. 
+:::
+
+
+::: {.cell .code}
+```python
+for n in ['romeo', 'router', 'juliet']:
+    slice.get_node(name=n).execute("sudo apt update; sudo apt -y install net-tools iperf3 moreutils", quite=True)
+```
+:::
+
+
+
+::: {.cell .markdown}
+and, quiet the login banner so we don't have to see it each time we log in:
+
+:::
+
+
+::: {.cell .code}
+```python
+for n in ['romeo', 'router', 'juliet']:
+    slice.get_node(name=n).execute("touch ~/.hushlogin", quite=True)
+```
+:::
+
 
 ::: {.cell .markdown}
 
 
-In our initial setup, we will:
-
-* `touch ~/.hushlogin` so we don't have to see the login banner for each cell
-* install some software packages
-
-:::
-
-
-::: {.cell .code}
-
-
-```bash
-%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP" "$ROMEO_IFACE_R"
-ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $1 -J $2@$3 $4@$5 << EOF
-##############################################
-
-touch ~/.hushlogin
-sudo apt update
-sudo apt -y install net-tools iperf3 moreutils
-
-##############################################
-exit
-EOF
-```
-
-:::
-
-
-::: {.cell .code}
-
-
-```bash
-%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$JULIET_USER" "$JULIET_IP" "$JULIET_IFACE_J"
-ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $1 -J $2@$3 $4@$5 << EOF
-##############################################
-
-touch ~/.hushlogin
-sudo apt update
-sudo apt -y install net-tools iperf3 moreutils
-
-##############################################
-exit
-EOF
-```
-
-:::
-
-
-::: {.cell .code}
-
-
-```bash
-%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROUTER_USER" "$ROUTER_IP"
-ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $1 -J $2@$3 $4@$5 << EOF
-##############################################
-
-touch ~/.hushlogin
-sudo apt update
-sudo apt -y install net-tools
-
-##############################################
-exit
-EOF
-```
-
-:::
-
-::: {.cell .markdown}
-
-
-Next, we will set up networking.
-
-:::
-
-
-::: {.cell .code}
-
-
-```bash
-%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP" "$ROMEO_IFACE_R"
-ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $1 -J $2@$3 $4@$5 << EOF
-##############################################
-
-sudo ip addr add 192.168.0.2/24 dev $6
-sudo ip route add 192.168.1.0/24 via 192.168.0.1 dev $6 
-
-ip addr show dev $6
-ip route show
-
-##############################################
-exit
-EOF
-```
+Now we can test our configuration! We will `ping` from romeo to juliet:
 
 :::
 
@@ -479,59 +493,8 @@ EOF
 ::: {.cell .code}
 
 ```bash
-%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$JULIET_USER" "$JULIET_IP" "$JULIET_IFACE_J"
-ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $1 -J $2@$3 $4@$5 << EOF
-##############################################
-
-sudo ip addr add 192.168.1.2/24 dev $6
-sudo ip route add 192.168.0.0/24 via 192.168.1.1 dev $6 
-
-ip addr show dev $6
-ip route show
-
-##############################################
-exit
-EOF
-```
-
-:::
-
-
-::: {.cell .code}
-
-```bash
-%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROUTER_USER" "$ROUTER_IP" "$ROUTER_IFACE_R" "$ROUTER_IFACE_J"
-ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $1 -J $2@$3 $4@$5 << EOF
-##############################################
-
-sudo ip addr add 192.168.0.1/24 dev $6
-sudo ip addr add 192.168.1.1/24 dev $7
-sudo sysctl -w net.ipv4.ip_forward=1
-
-ip addr show dev $6
-ip addr show dev $7
-ip route show
-
-##############################################
-exit
-EOF
-```
-
-:::
-
-::: {.cell .markdown}
-
-
-Now we can test it! We will `ping` from romeo to juliet:
-
-:::
-
-
-::: {.cell .code}
-
-```bash
-%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP" "$ROMEO_IFACE_R"
-ssh -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
+%%bash -s "$SSH_CMD_ROMEO"
+$1 << EOF
 ##############################################
 
 ping -c 5 192.168.1.2
@@ -563,8 +526,8 @@ Next, we will set up juliet as an adaptive video "server". We will run this in t
 
 
 ```bash
-%%bash --bg -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$JULIET_USER" "$JULIET_IP"
-ssh  -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
+%%bash -s "$SSH_CMD_JULIET"
+$1 << EOF
 ##############################################
 
 sudo apt install -y apache2  
@@ -590,8 +553,8 @@ Set up romeo as an adaptive video "client".
 ::: {.cell .code}
 
 ```bash
-%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
-ssh  -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
+%%bash -s "$SSH_CMD_ROMEO"
+$1 << EOF
 ##############################################
 
 sudo apt install -y python2 ffmpeg
@@ -634,8 +597,8 @@ We will retrieve this open-source implementation on romeo:
 ::: {.cell .code}
 
 ```bash
-%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
-ssh  -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
+%%bash -s "$SSH_CMD_ROMEO"
+$1 << EOF
 ##############################################
 
 git clone https://github.com/pari685/AStream  
@@ -656,8 +619,8 @@ Make sure the video server is ready on juliet. The output should show the BigBuc
 ::: {.cell .code}
 
 ```bash
-%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$JULIET_USER" "$JULIET_IP"
-ssh  -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
+%%bash -s "$SSH_CMD_JULIET"
+$1 << EOF
 ##############################################
 
 ls /var/www/html/media/BigBuckBunny/4sec
@@ -698,50 +661,50 @@ Now, we can try an experiment! We will retrieve the first 30 segments of the vid
 
 
 ```bash
-%%bash --bg -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROUTER_USER" "$ROUTER_IP" "$ROUTER_IFACE_R" "$ROUTER_IFACE_J"
-ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $1 -J $2@$3 $4@$5 << EOF
+%%bash -s "$SSH_CMD_ROUTER" "$ROUTER_IFACE_R" "$ROUTER_IFACE_J"
+$1 << EOF
 ##############################################
 
-sudo tc qdisc del dev $6 root  
-sudo tc qdisc add dev $6 root handle 1: htb default 3  
-sudo tc class add dev $6 parent 1: classid 1:3 htb rate 1Mbit  
-sudo tc qdisc add dev $6 parent 1:3 handle 3: bfifo limit 0.1MB
-sudo tc qdisc show dev $6
+sudo tc qdisc del dev $2 root  
+sudo tc qdisc add dev $2 root handle 1: htb default 3  
+sudo tc class add dev $2 parent 1: classid 1:3 htb rate 1Mbit  
+sudo tc qdisc add dev $2 parent 1:3 handle 3: bfifo limit 0.1MB
+sudo tc qdisc show dev $2
         
-sudo tc qdisc del dev $7 root  
-sudo tc qdisc add dev $7 root handle 1: htb default 3  
-sudo tc class add dev $7 parent 1: classid 1:3 htb rate 1Mbit  
-sudo tc qdisc add dev $7 parent 1:3 handle 3: bfifo limit 0.1MB  
-sudo tc qdisc show dev $7
+sudo tc qdisc del dev $3 root  
+sudo tc qdisc add dev $3 root handle 1: htb default 3  
+sudo tc class add dev $3 parent 1: classid 1:3 htb rate 1Mbit  
+sudo tc qdisc add dev $3 parent 1:3 handle 3: bfifo limit 0.1MB  
+sudo tc qdisc show dev $3
 
 sleep 20
 
-sudo tc qdisc del dev $6 root  
-sudo tc qdisc add dev $6 root handle 1: htb default 3  
-sudo tc class add dev $6 parent 1: classid 1:3 htb rate 100Kbit  
-sudo tc qdisc add dev $6 parent 1:3 handle 3: bfifo limit 0.1MB
-sudo tc qdisc show dev $6
+sudo tc qdisc del dev $2 root  
+sudo tc qdisc add dev $2 root handle 1: htb default 3  
+sudo tc class add dev $2 parent 1: classid 1:3 htb rate 100Kbit  
+sudo tc qdisc add dev $2 parent 1:3 handle 3: bfifo limit 0.1MB
+sudo tc qdisc show dev $2
         
-sudo tc qdisc del dev $7 root  
-sudo tc qdisc add dev $7 root handle 1: htb default 3  
-sudo tc class add dev $7 parent 1: classid 1:3 htb rate 100Kbit  
-sudo tc qdisc add dev $7 parent 1:3 handle 3: bfifo limit 0.1MB  
-sudo tc qdisc show dev $7
+sudo tc qdisc del dev $3 root  
+sudo tc qdisc add dev $3 root handle 1: htb default 3  
+sudo tc class add dev $3 parent 1: classid 1:3 htb rate 100Kbit  
+sudo tc qdisc add dev $3 parent 1:3 handle 3: bfifo limit 0.1MB  
+sudo tc qdisc show dev $3
 
 sleep 20
 
 
-sudo tc qdisc del dev $6 root  
-sudo tc qdisc add dev $6 root handle 1: htb default 3  
-sudo tc class add dev $6 parent 1: classid 1:3 htb rate 1Mbit  
-sudo tc qdisc add dev $6 parent 1:3 handle 3: bfifo limit 0.1MB
-sudo tc qdisc show dev $6
+sudo tc qdisc del dev $2 root  
+sudo tc qdisc add dev $2 root handle 1: htb default 3  
+sudo tc class add dev $2 parent 1: classid 1:3 htb rate 1Mbit  
+sudo tc qdisc add dev $2 parent 1:3 handle 3: bfifo limit 0.1MB
+sudo tc qdisc show dev $2
         
-sudo tc qdisc del dev $7 root  
-sudo tc qdisc add dev $7 root handle 1: htb default 3  
-sudo tc class add dev $7 parent 1: classid 1:3 htb rate 1Mbit  
-sudo tc qdisc add dev $7 parent 1:3 handle 3: bfifo limit 0.1MB  
-sudo tc qdisc show dev $7
+sudo tc qdisc del dev $3 root  
+sudo tc qdisc add dev $3 root handle 1: htb default 3  
+sudo tc class add dev $3 parent 1: classid 1:3 htb rate 1Mbit  
+sudo tc qdisc add dev $3 parent 1:3 handle 3: bfifo limit 0.1MB  
+sudo tc qdisc show dev $3
 
 ##############################################
 exit
@@ -754,8 +717,8 @@ EOF
 ::: {.cell .code}
 
 ```bash
-%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
-ssh  -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
+%%bash -s "$SSH_CMD_ROMEO"
+$1 << EOF
 ##############################################
 
 python2 ~/AStream/dist/client/dash_client.py -m http://192.168.1.2/media/BigBuckBunny/4sec/BigBuckBunny_4s.mpd -p 'netflix' -n 30 -d
@@ -778,8 +741,8 @@ The log files will be inside `ASTREAM_LOGS`, and the video files will be inside 
 
 
 ```bash
-%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
-ssh  -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
+%%bash -s "$SSH_CMD_ROMEO"
+$1 << EOF
 ##############################################
 
 ls -alstr ~/
@@ -811,8 +774,8 @@ We can recreate the video from the segments, which are stored in the `TEMP_` dir
 ::: {.cell .code}
 
 ```bash
-%%bash -s "$FABRIC_SLICE_PRIVATE_KEY_FILE" "$FABRIC_BASTION_USERNAME" "$FABRIC_BASTION_HOST" "$ROMEO_USER" "$ROMEO_IP"
-ssh  -q -o StrictHostKeyChecking=no -i $1 -J $2@$3 $4@$5 << EOF
+%%bash -s "$SSH_CMD_ROMEO"
+$1 << EOF
 ##############################################
 
 cd ~/TEMP_MBvypN
@@ -831,7 +794,6 @@ EOF
 
 
 ::: {.cell .code}
-
 
 ```python
 slice.get_node("romeo").download_file("/home/fabric/work/BigBuckBunny.mp4", "/home/ubuntu/BigBuckBunny.mp4")
