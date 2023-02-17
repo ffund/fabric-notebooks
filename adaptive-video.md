@@ -454,6 +454,27 @@ for iface in slice.get_interfaces():
 :::
 
 
+
+::: {.cell .markdown}
+
+The following cell will make sure that the FABRIC nodes can reach targets on the Internet (e.g. to retrieve files or software), even if the FABRIC nodes connect to the Internet through IPv6 and the targetes on the Internet are IPv4 only, by using [nat64](https://nat64.net/).
+
+:::
+
+
+::: {.cell .code}
+```python
+for node in ["romeo", "juliet", "router"]:
+    slice.get_node(node).execute("sudo sed -i '/nameserver/d' /etc/resolv.conf")
+    slice.get_node(node).execute("echo nameserver 2a00:1098:2c::1 | sudo tee -a /etc/resolv.conf")
+    slice.get_node(node).execute("echo nameserver 2a01:4f8:c2c:123f::1 | sudo tee -a /etc/resolv.conf")
+    slice.get_node(node).execute("echo nameserver 2a00:1098:2b::1 | sudo tee -a /etc/resolv.conf")
+    slice.get_node(node).execute('echo "127.0.0.1 $(hostname -s)" | sudo tee -a /etc/hosts')
+```
+:::
+
+
+
 ::: {.cell .markdown}
 Finally, we'll install some software. 
 :::
@@ -526,7 +547,7 @@ Next, we will set up juliet as an adaptive video "server". We will run this in t
 
 
 ```bash
-%%bash -s "$SSH_CMD_JULIET"
+%%bash --bg -s "$SSH_CMD_JULIET"
 $1 << EOF
 ##############################################
 
@@ -661,7 +682,7 @@ Now, we can try an experiment! We will retrieve the first 30 segments of the vid
 
 
 ```bash
-%%bash -s "$SSH_CMD_ROUTER" "$ROUTER_IFACE_R" "$ROUTER_IFACE_J"
+%%bash --bg -s "$SSH_CMD_ROUTER" "$ROUTER_IFACE_R" "$ROUTER_IFACE_J"
 $1 << EOF
 ##############################################
 
