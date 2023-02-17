@@ -538,20 +538,41 @@ EOF
 ::: {.cell .markdown}
 
 
-Next, we will set up juliet as an adaptive video "server". We will run this in the background, just so that we can continue to romeo in the meantime, but we need to make sure it's finished before we start the experiment.
+Next, we will set up juliet as an adaptive video "server". 
 
 :::
 
 
 ::: {.cell .code}
 
-
 ```bash
-%%bash --bg -s "$SSH_CMD_JULIET"
+%%bash -s "$SSH_CMD_JULIET"
 $1 << EOF
 ##############################################
 
 sudo apt install -y apache2  
+
+##############################################
+exit
+EOF
+```
+:::
+
+::: {.cell .markdown}
+
+
+The download in the next cell takes a while. You may prefer to SSH into juliet directly and run these commands interactively, so that you can monitor it.
+
+:::
+
+
+::: {.cell .code}
+
+```bash
+%%bash -s "$SSH_CMD_JULIET"
+$1 << EOF
+##############################################
+
 wget https://nyu.box.com/shared/static/d6btpwf5lqmkqh53b52ynhmfthh2qtby.tgz -O media.tgz -o wget.log 
 sudo tar -v -xzf media.tgz -C /var/www/html/  
 
@@ -559,7 +580,6 @@ sudo tar -v -xzf media.tgz -C /var/www/html/
 exit
 EOF
 ```
-
 :::
 
 ::: {.cell .markdown}
